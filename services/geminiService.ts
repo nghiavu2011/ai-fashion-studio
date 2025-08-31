@@ -5,13 +5,9 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part } from "@google/genai";
 import { locales, type Language } from "../lib/locales";
 
-// Fix: Adhere to @google/genai guidelines by using process.env.API_KEY.
-// This resolves the TypeScript error related to `import.meta.env` and aligns with the coding standards.
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set. Please ensure it is available in the execution environment.");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// FIX: Use `process.env.API_KEY` directly for initialization as per coding guidelines.
+// The environment variable is assumed to be pre-configured and valid.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 
 // --- Helper Functions ---
