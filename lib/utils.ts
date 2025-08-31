@@ -1,5 +1,5 @@
 /**
- * © 2024 N&M_AI_ART. All Rights Reserved.
+ * © 2025 N&M_AI_ART. All Rights Reserved.
  */
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";

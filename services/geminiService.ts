@@ -1,98 +1,10 @@
 /**
- * © 2024 N&M_AI_ART. All Rights Reserved.
+ * © 2025 N&M_AI_ART. All Rights Reserved.
  */
-import { GoogleGenAI, Modality } from "@google/genai";
-import type { GenerateContentResponse, Part } from "@google/genai";
-import { locales, type Language } from "../lib/locales";
-
-// FIX: Use `process.env.API_KEY` directly for initialization as per coding guidelines.
-// The environment variable is assumed to be pre-configured and valid.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
-
-// --- Helper Functions ---
+import type { Language } from "../lib/locales";
 
 /**
- * Converts a data URL string to a Gemini API-compatible Part object.
- * @param imageDataUrl The data URL of the image.
- * @param lang The current language for error messages.
- * @returns A Part object for the Gemini API.
- */
-function dataUrlToGeminiPart(imageDataUrl: string, lang: Language): Part {
-    const t = locales[lang];
-    const match = imageDataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
-    if (!match) {
-      throw new Error(t.invalidDataUrlError);
-    }
-    const [, mimeType, data] = match;
-    return {
-      inlineData: { mimeType, data },
-    };
-}
-
-/**
- * Processes the Gemini API response, extracting the image or throwing an error if none is found.
- * @param response The response from the generateContent call.
- * @param lang The current language for error messages.
- * @returns A data URL string for the generated image.
- */
-function processGeminiResponse(response: GenerateContentResponse, lang: Language): string {
-    const t = locales[lang];
-    const imagePartFromResponse = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
-
-    if (imagePartFromResponse?.inlineData) {
-        const { mimeType, data } = imagePartFromResponse.inlineData;
-        return `data:${mimeType};base64,${data}`;
-    }
-
-    const textResponse = response.text;
-    console.error("API did not return an image. Response:", textResponse);
-    throw new Error(`${t.apiReturnsTextError}"${textResponse || t.noResponseError}"`);
-}
-
-/**
- * A wrapper for the Gemini API call that includes a retry mechanism for internal server errors.
- * @param imageParts The image parts of the request payload.
- * @param textPart The text part of the request payload.
- * @param lang The current language for error messages.
- * @returns The GenerateContentResponse from the API.
- */
-async function callGeminiWithRetry(imageParts: Part[], textPart: Part, lang: Language): Promise<GenerateContentResponse> {
-    const t = locales[lang];
-    const maxRetries = 3;
-    const initialDelay = 1000;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            return await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image-preview',
-                contents: { parts: [...imageParts, textPart] },
-                config: {
-                    responseModalities: [Modality.IMAGE, Modality.TEXT],
-                },
-            });
-        } catch (error) {
-            console.error(`Error calling Gemini API (Attempt ${attempt}/${maxRetries}):`, error);
-            const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-            const isInternalError = errorMessage.includes('"code":500') || errorMessage.includes('INTERNAL');
-
-            if (isInternalError && attempt < maxRetries) {
-                const delay = initialDelay * Math.pow(2, attempt - 1);
-                console.log(`Internal error detected. Retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
-            }
-            throw error; // Re-throw if not a retriable error or if max retries are reached.
-        }
-    }
-    // This should be unreachable due to the loop and throw logic above.
-    throw new Error(t.connectionError);
-}
-
-
-/**
- * Generates an image by fusing a model, clothing, and background.
- * It includes a fallback mechanism for prompts that might be blocked.
+ * Calls the backend serverless function to generate an image by fusing a model, clothing, and background.
  * @param characterImageDataUrl Data URL string of the model image.
  * @param propImageDataUrl Data URL string of the clothing image.
  * @param backgroundImageDataUrl Data URL string of the background image.
@@ -107,42 +19,30 @@ export async function generateFusedImage(
     lang: Language,
     cameraAngleText: string
 ): Promise<string> {
-    const t = locales[lang];
-    const characterImagePart = dataUrlToGeminiPart(characterImageDataUrl, lang);
-    const propImagePart = dataUrlToGeminiPart(propImageDataUrl, lang);
-    const backgroundImagePart = dataUrlToGeminiPart(backgroundImageDataUrl, lang);
-    const imageParts = [characterImagePart, propImagePart, backgroundImagePart];
+    const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            characterImageDataUrl,
+            propImageDataUrl,
+            backgroundImageDataUrl,
+            lang,
+            cameraAngleText,
+        }),
+    });
 
-    // --- First attempt with the original prompt ---
-    try {
-        console.log("Attempting generation with original prompt...");
-        const promptWithAngle = t.geminiPrompt.replace('[CAMERA_ANGLE_PLACEHOLDER]', cameraAngleText);
-        const textPart = { text: promptWithAngle };
-        const response = await callGeminiWithRetry(imageParts, textPart, lang);
-        return processGeminiResponse(response, lang);
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-        const isNoImageError = errorMessage.includes(t.apiReturnsTextError.trim());
-
-        if (isNoImageError) {
-            console.warn("Original prompt was likely blocked. Trying a fallback prompt.");
-            
-            // --- Second attempt with the fallback prompt ---
-            try {
-                console.log(`Attempting generation with fallback prompt...`);
-                const fallbackPromptWithAngle = t.geminiFallbackPrompt.replace('[CAMERA_ANGLE_PLACEHOLDER]', cameraAngleText);
-                const fallbackTextPart = { text: fallbackPromptWithAngle };
-                const fallbackResponse = await callGeminiWithRetry(imageParts, fallbackTextPart, lang);
-                return processGeminiResponse(fallbackResponse, lang);
-            } catch (fallbackError) {
-                console.error("Fallback prompt also failed.", fallbackError);
-                const finalErrorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-                throw new Error(`${t.fallbackFailedError}${finalErrorMessage}`);
-            }
-        } else {
-            // This is for other errors, like a final internal server error after retries.
-            console.error("An unrecoverable error occurred during image generation.", error);
-            throw new Error(`${t.unrecoverableError}${errorMessage}`);
-        }
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'An unknown server error occurred.' }));
+        // Use the error message from the serverless function
+        throw new Error(errorData.error || 'Failed to generate image due to a server error.');
     }
+
+    const result = await response.json();
+    if (!result.imageUrl) {
+        throw new Error('Server response did not include an image URL.');
+    }
+    
+    return result.imageUrl;
 }

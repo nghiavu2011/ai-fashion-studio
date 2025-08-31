@@ -1,5 +1,5 @@
 /**
- * © 2024 N&M_AI_ART. All Rights Reserved.
+ * © 2025 N&M_AI_ART. All Rights Reserved.
  * 
  * HƯỚNG DẪN:
  * 1. Truy cập một trang web chuyển đổi ảnh sang Base64, ví dụ: https://www.base64-image.de/

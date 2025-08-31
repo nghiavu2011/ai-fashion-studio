@@ -1,5 +1,5 @@
 /**
- * © 2024 N&M_AI_ART. All Rights Reserved.
+ * © 2025 N&M_AI_ART. All Rights Reserved.
  */
 import { cn } from "../../lib/utils";
 import React, { useRef } from "react";

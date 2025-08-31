@@ -1,5 +1,5 @@
 /**
- * © 2024 N&M_AI_ART. All Rights Reserved.
+ * © 2025 N&M_AI_ART. All Rights Reserved.
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { DraggableCardContainer, DraggableCardBody } from './ui/draggable-card';

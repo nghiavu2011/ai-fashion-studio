@@ -1,5 +1,5 @@
 /**
- * © 2024 N&M_AI_ART. All Rights Reserved.
+ * © 2025 N&M_AI_ART. All Rights Reserved.
  */
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
