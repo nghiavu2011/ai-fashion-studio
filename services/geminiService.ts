@@ -1,15 +1,15 @@
 /**
  * © 2024 N&M_AI_ART. All Rights Reserved.
  */
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse, Part } from "@google/genai";
 import { locales, type Language } from "../lib/locales";
 
-
+// Fix: The API key must be obtained from process.env.API_KEY as per coding guidelines, which also resolves the TypeScript error with import.meta.env.
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
-  throw new Error("API_KEY environment variable is not set");
+  throw new Error("API_KEY environment variable is not set.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -69,9 +69,13 @@ async function callGeminiWithRetry(imageParts: Part[], textPart: Part, lang: Lan
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+            // Fix: Added responseModalities config for image editing model as per guidelines.
             return await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image-preview',
                 contents: { parts: [...imageParts, textPart] },
+                config: {
+                    responseModalities: [Modality.IMAGE, Modality.TEXT],
+                },
             });
         } catch (error) {
             console.error(`Error calling Gemini API (Attempt ${attempt}/${maxRetries}):`, error);
